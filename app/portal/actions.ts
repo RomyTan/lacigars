@@ -1,6 +1,6 @@
 'use server';
 
-import { prisma } from '../lib/prisma';
+import { prisma } from '../../lib/prisma';
 
 export async function submitOrder(userId: number, total: number, cart: Record<number, number>, products: any[]) {
   const orderNumber = `LAC-${Date.now()}`;
