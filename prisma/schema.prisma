@@ -1,0 +1,159 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// 1. Customer Groups
+model CustomerGroup {
+  id          Int      @id @default(autoincrement())
+  name        String
+  users       User[]
+  tierPrices  TierPrice[]
+  groupRules  GroupProductRule[]
+  createdAt   DateTime @default(now())
+}
+
+// 2. User / Customer & Admin
+model User {
+  id            Int      @id @default(autoincrement())
+  email         String   @unique
+  passwordHash  String
+  name          String
+  companyName   String?
+  role          String   @default("CUSTOMER")
+  isActive      Boolean  @default(true)
+  
+  groupId       Int?
+  group         CustomerGroup?     @relation(fields: [groupId], references: [id])
+  
+  overrides     CustomerOverride[]
+  orders        Order[]
+  cartDrafts    CartDraft[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// 3. Kategori Produk
+model Category {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  products  Product[]
+}
+
+// 4. Produk Utama (Lengkap dengan spesifikasi cerutu)
+model Product {
+  id              Int      @id @default(autoincrement())
+  sku             String   @unique
+  name            String
+  description     String?  @db.Text
+  image           String?
+  images          String?  @db.Text
+  
+  brand           String?
+  origin          String?
+  wrapper         String?
+  binderFiller    String?
+  shape           String?
+  strength        String?
+  flavored        String?  @default("No")
+  length          String?
+  ring            String?
+  boxInfo         String?
+
+  basePrice       Decimal  @db.Decimal(10, 2)
+  isActive        Boolean  @default(true)
+  
+  categoryId      Int
+  category        Category @relation(fields: [categoryId], references: [id])
+  
+  tierPrices      TierPrice[]
+  groupRules      GroupProductRule[]
+  overrides       CustomerOverride[]
+  orderItems      OrderItem[]
+  createdAt       DateTime @default(now())
+}
+
+// 5. Harga per Group
+model TierPrice {
+  id        Int     @id @default(autoincrement())
+  groupId   Int
+  productId Int
+  price     Decimal @db.Decimal(10, 2)
+
+  group     CustomerGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  product   Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, productId])
+}
+
+// 6. Aturan Visibilitas per Group
+model GroupProductRule {
+  id        Int     @id @default(autoincrement())
+  groupId   Int
+  productId Int
+  isHidden  Boolean @default(false)
+
+  group     CustomerGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  product   Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, productId])
+}
+
+// 7. Individual Override
+model CustomerOverride {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  productId   Int
+  customPrice Decimal? @db.Decimal(10, 2)
+  isHidden    Boolean  @default(false)
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+}
+
+// 8. Order Header
+model Order {
+  id           Int      @id @default(autoincrement())
+  orderNumber  String   @unique
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id])
+  
+  status       String   @default("PENDING")
+  totalUnits   Int
+  totalAmount  Decimal  @db.Decimal(10, 2)
+  orderNotes   String?  @db.Text
+  poNumber     String?
+  
+  items        OrderItem[]
+  createdAt    DateTime @default(now())
+}
+
+// 9. Order Detail
+model OrderItem {
+  id        Int      @id @default(autoincrement())
+  orderId   Int
+  productId Int
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id])
+  
+  sku       String
+  name      String
+  unitPrice Decimal  @db.Decimal(10, 2)
+  quantity  Int
+  lineTotal Decimal  @db.Decimal(10, 2)
+}
+
+// 10. Keranjang Tersimpan
+model CartDraft {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cartData  String   @db.LongText
+  updatedAt DateTime @updatedAt
+}
