@@ -1,33 +1,31 @@
 'use client';
 import { useState } from 'react';
 
-// Komponen Tabel Dinamis dengan fitur Thumbnail Gambar
 function DynamicTable({ data }: { data: any[] }) {
-  if (!data || data.length === 0) return <div className="text-gray-500">Belum ada data.</div>;
+  if (!data || data.length === 0) return <div className="text-gray-500 mt-4">Belum ada data.</div>;
   
   const headers = Object.keys(data[0]);
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200">
-      <table className="w-full text-sm text-left text-black">
-        <thead className="bg-gray-100 uppercase text-xs font-bold">
+    <div className="overflow-x-auto rounded-2xl border border-[#333] bg-[#1a1a1a]">
+      <table className="w-full text-sm text-left text-gray-300">
+        <thead className="bg-[#222] uppercase text-xs font-semibold text-[#d4af37] tracking-wider">
           <tr>
             {headers.map((h) => (
-              <th key={h} className="p-3 border-b">{h}</th>
+              <th key={h} className="p-4 border-b border-[#333]">{h}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {data.map((row, i) => (
-            <tr key={i} className="border-b hover:bg-gray-50">
+            <tr key={i} className="border-b border-[#333] hover:bg-[#2a2a2a] transition-colors">
               {headers.map((h) => (
-                <td key={h} className="p-3">
-                  {/* Render gambar jika nama kolom adalah 'image' atau 'images' */}
+                <td key={h} className="p-4">
                   {h.toLowerCase() === 'image' || h.toLowerCase() === 'images' ? (
                     row[h] && row[h] !== 'null' ? (
-                      <img src={row[h]} alt="thumbnail" className="w-12 h-12 object-cover rounded-md border" />
+                      <img src={row[h]} alt="thumbnail" className="w-10 h-10 object-cover rounded-lg border border-[#444]" />
                     ) : (
-                      <span className="text-gray-400 italic">No Image</span>
+                      <span className="text-gray-600 text-xs italic">No Image</span>
                     )
                   ) : typeof row[h] === 'object' ? (
                     JSON.stringify(row[h])
@@ -46,27 +44,13 @@ function DynamicTable({ data }: { data: any[] }) {
 
 export default function AdminDashboardClient({ initialData }: any) {
   const [activeTab, setActiveTab] = useState('Product');
-  // State untuk berpindah antara tampilan Tabel dan tampilan Form Add Product
   const [productView, setProductView] = useState<'table' | 'add'>('table');
 
-  // State untuk form & Live Preview
   const [newProduct, setNewProduct] = useState({
-    name: '',
-    sku: '',
-    basePrice: '',
-    category: 'Premium Cigars',
-    brand: '',
-    origin: '',
-    wrapper: '',
-    binderFiller: '',
-    shape: '',
-    strength: '',
-    flavored: 'No',
-    length: '',
-    ring: '',
-    boxInfo: '',
-    description: '',
-    imagePreview: '/uploads/1790012363796-Double_Corona-c.jpg' // Dummy image untuk contoh
+    name: '', sku: '', basePrice: '', category: 'Premium Cigars', brand: '', origin: '',
+    wrapper: '', binderFiller: '', shape: '', strength: '', flavored: 'No',
+    length: '', ring: '', boxInfo: '', description: '',
+    imagePreview: '/uploads/1790012363796-Double_Corona-c.jpg'
   });
 
   const handleInput = (e: any) => {
@@ -89,190 +73,161 @@ export default function AdminDashboardClient({ initialData }: any) {
 
   const activeMenu = menuItems.find(m => m.id === activeTab);
 
+  const inputClass = "w-full bg-[#121212] border border-[#333] rounded-xl p-3 text-white focus:outline-none focus:border-[#d4af37] transition-colors";
+  const labelClass = "block text-gray-400 text-xs uppercase tracking-wider mb-2 font-semibold";
+
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <aside className="w-72 bg-white shadow-md p-4 border-r border-gray-200">
-        <h2 className="text-xl font-bold mb-8 mt-2 text-black px-4">LAC Admin Panel</h2>
-        <nav className="flex flex-col gap-1.5">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => {
-                setActiveTab(item.id);
-                if (item.id !== 'Product') setProductView('table');
-              }}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-sm transition-all ${
-                activeTab === item.id ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:bg-gray-100 hover:text-black'
-              }`}
-            >
-              <span className="text-lg">{item.icon}</span>
-              {item.label}
-            </button>
-          ))}
-        </nav>
-      </aside>
-
-      <main className="flex-1 p-8 overflow-auto text-black">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">
-            {activeTab === 'Product' && productView === 'add' 
-              ? 'Product Management & Preview' 
-              : activeMenu?.label}
-          </h1>
+    <div className="min-h-screen bg-[#0f0f0f] p-4 lg:p-6 font-sans text-gray-200 flex">
+      {/* Container Utama Melengkung */}
+      <div className="flex w-full bg-[#1e1e1e] rounded-[32px] shadow-2xl overflow-hidden border border-[#2a2a2a]">
+        
+        {/* Sidebar */}
+        <aside className="w-72 bg-[#1e1e1e] p-6 flex flex-col border-r border-[#2a2a2a]">
+          <div className="flex items-center gap-3 mb-10 px-2">
+            <div className="w-3 h-3 rounded-full bg-[#d4af37]"></div>
+            <h2 className="text-xl font-bold text-white tracking-widest uppercase">LAC Admin</h2>
+          </div>
           
-          {/* Tombol Add New Product */}
-          {activeTab === 'Product' && productView === 'table' && (
-            <button 
-              onClick={() => setProductView('add')}
-              className="bg-black text-white px-5 py-2.5 rounded-lg text-sm font-bold shadow-md hover:bg-gray-800 transition-colors"
-            >
-              + Add New Product
-            </button>
-          )}
-        </div>
+          <nav className="flex flex-col gap-2 flex-1 overflow-y-auto pr-2 custom-scrollbar">
+            {menuItems.map((item) => {
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setActiveTab(item.id);
+                    if (item.id !== 'Product') setProductView('table');
+                  }}
+                  className={`flex items-center gap-4 px-4 py-3.5 rounded-2xl text-sm font-medium transition-all ${
+                    isActive 
+                      ? 'bg-[#2a2a2a] text-[#d4af37] shadow-inner border-l-4 border-[#d4af37]' 
+                      : 'text-gray-400 hover:bg-[#252525] hover:text-white'
+                  }`}
+                >
+                  <span className="text-lg opacity-80">{item.icon}</span>
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
+        </aside>
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 min-h-[500px]">
-          {activeTab === 'Product' ? (
-            productView === 'table' ? (
-              <DynamicTable data={initialData?.products || []} />
+        {/* Main Content */}
+        <main className="flex-1 p-8 lg:p-10 overflow-auto bg-[#1a1a1a]">
+          <div className="flex justify-between items-end mb-8 border-b border-[#333] pb-6">
+            <div>
+              <p className="text-[#d4af37] text-xs font-bold uppercase tracking-widest mb-1">Dashboard</p>
+              <h1 className="text-3xl font-bold text-white">
+                {activeTab === 'Product' && productView === 'add' ? 'Add New Cigar' : activeMenu?.label}
+              </h1>
+            </div>
+            
+            {activeTab === 'Product' && productView === 'table' && (
+              <button 
+                onClick={() => setProductView('add')}
+                className="bg-[#5c3616] text-[#d4af37] px-6 py-3 rounded-xl text-sm font-bold shadow-lg hover:bg-[#4a2b11] transition-all flex items-center gap-2"
+              >
+                <span>+</span> New Product
+              </button>
+            )}
+          </div>
+
+          <div className="min-h-[500px]">
+            {activeTab === 'Product' ? (
+              productView === 'table' ? (
+                <DynamicTable data={initialData?.products || []} />
+              ) : (
+                <div className="flex flex-col xl:flex-row gap-8">
+                  {/* Form */}
+                  <div className="flex-1 bg-[#1e1e1e] p-8 rounded-3xl border border-[#2a2a2a]">
+                    <div className="space-y-5 text-sm">
+                      <div>
+                        <label className={labelClass}>Product Name</label>
+                        <input name="name" value={newProduct.name} onChange={handleInput} placeholder="Montecristo 1935..." className={inputClass} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-5">
+                        <div>
+                          <label className={labelClass}>SKU</label>
+                          <input name="sku" value={newProduct.sku} onChange={handleInput} placeholder="LAC-002" className={inputClass} />
+                        </div>
+                        <div>
+                          <label className={labelClass}>Base Price ($)</label>
+                          <input name="basePrice" type="number" value={newProduct.basePrice} onChange={handleInput} placeholder="150" className={inputClass} />
+                        </div>
+                      </div>
+                      <div>
+                        <label className={labelClass}>Category</label>
+                        <select name="category" value={newProduct.category} onChange={handleInput} className={inputClass}>
+                          <option className="bg-[#121212]">Premium Cigars</option>
+                          <option className="bg-[#121212]">Accessories</option>
+                        </select>
+                      </div>
+
+                      <h3 className="font-bold text-[#d4af37] pt-6 border-t border-[#333] uppercase tracking-wider text-xs">Specifications</h3>
+                      
+                      <div className="grid grid-cols-2 gap-5">
+                        <div><label className={labelClass}>Brand</label><input name="brand" value={newProduct.brand} onChange={handleInput} className={inputClass} /></div>
+                        <div><label className={labelClass}>Origin</label><input name="origin" value={newProduct.origin} onChange={handleInput} className={inputClass} /></div>
+                        <div><label className={labelClass}>Wrapper</label><input name="wrapper" value={newProduct.wrapper} onChange={handleInput} className={inputClass} /></div>
+                        <div><label className={labelClass}>Binder / Filler</label><input name="binderFiller" value={newProduct.binderFiller} onChange={handleInput} className={inputClass} /></div>
+                        <div><label className={labelClass}>Shape</label><input name="shape" value={newProduct.shape} onChange={handleInput} className={inputClass} /></div>
+                        <div><label className={labelClass}>Strength</label><input name="strength" value={newProduct.strength} onChange={handleInput} className={inputClass} /></div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-5">
+                        <div><label className={labelClass}>Flavored</label><input name="flavored" value={newProduct.flavored} onChange={handleInput} className={inputClass} /></div>
+                        <div><label className={labelClass}>Length</label><input name="length" value={newProduct.length} onChange={handleInput} className={inputClass} /></div>
+                        <div><label className={labelClass}>Ring</label><input name="ring" value={newProduct.ring} onChange={handleInput} className={inputClass} /></div>
+                      </div>
+
+                      <div><label className={labelClass}>Box Info</label><input name="boxInfo" value={newProduct.boxInfo} onChange={handleInput} className={inputClass} /></div>
+                      <div><label className={labelClass}>Description</label><textarea name="description" rows={3} value={newProduct.description} onChange={handleInput} className={inputClass}></textarea></div>
+
+                      <div className="flex gap-4 pt-6">
+                        <button className="flex-1 bg-[#d4af37] text-black py-3.5 rounded-xl font-bold hover:bg-[#c19b2e] transition shadow-lg">
+                          Publish Product
+                        </button>
+                        <button onClick={() => setProductView('table')} className="px-8 bg-[#2a2a2a] text-white py-3.5 rounded-xl font-bold hover:bg-[#333] transition">
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Preview */}
+                  <div className="w-full xl:w-[380px]">
+                    <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-3xl p-6 sticky top-0 shadow-2xl">
+                      <p className="text-gray-400 text-xs uppercase tracking-wider mb-4 font-semibold">Live Preview</p>
+                      <div className="bg-[#121212] rounded-2xl p-6 mb-6 flex items-center justify-center min-h-[280px] border border-[#333]">
+                        {newProduct.imagePreview ? (
+                          <img src={newProduct.imagePreview} alt="Preview" className="max-w-full max-h-[260px] object-contain drop-shadow-2xl" />
+                        ) : (
+                          <span className="text-gray-600 italic">No Image</span>
+                        )}
+                      </div>
+                      
+                      <h3 className="text-xl font-bold text-white leading-tight">{newProduct.name || 'Cigar Name...'}</h3>
+                      <p className="text-xs text-[#d4af37] font-mono mt-1 mb-4">SKU: {newProduct.sku || '---'}</p>
+                      
+                      <div className="text-sm flex flex-col gap-2 text-gray-300 bg-[#121212] p-4 rounded-xl border border-[#333]">
+                        <p className="flex justify-between border-b border-[#222] pb-2"><span>Brand</span> <span className="text-white font-medium">{newProduct.brand || '-'}</span></p>
+                        <p className="flex justify-between border-b border-[#222] pb-2"><span>Shape</span> <span className="text-white font-medium">{newProduct.shape || '-'}</span></p>
+                        <p className="flex justify-between pb-1"><span>Box Info</span> <span className="text-white font-medium">{newProduct.boxInfo || '-'}</span></p>
+                      </div>
+                      <div className="mt-6 flex justify-between items-center bg-[#5c3616] p-4 rounded-xl border border-[#4a2b11]">
+                        <span className="text-[#d4af37] font-semibold text-sm">Base Price</span>
+                        <span className="text-2xl font-bold text-white">${newProduct.basePrice || '0.00'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
             ) : (
-              /* TAMPILAN FORM ADD PRODUCT & LIVE PREVIEW */
-              <div className="flex flex-col lg:flex-row gap-10">
-                
-                {/* Form Input (Kiri) */}
-                <div className="flex-1 bg-white">
-                  <h2 className="text-lg font-bold mb-4">Add New Cigar</h2>
-                  
-                  <div className="space-y-4 text-sm">
-                    <div>
-                      <label className="block text-gray-600 mb-1">Product Name</label>
-                      <input name="name" value={newProduct.name} onChange={handleInput} placeholder="e.g. Montecristo 1935..." className="w-full border rounded-md p-2" />
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-gray-600 mb-1">SKU</label>
-                        <input name="sku" value={newProduct.sku} onChange={handleInput} placeholder="LAC-002" className="w-full border rounded-md p-2" />
-                      </div>
-                      <div>
-                        <label className="block text-gray-600 mb-1">Base Price ($)</label>
-                        <input name="basePrice" type="number" value={newProduct.basePrice} onChange={handleInput} placeholder="150" className="w-full border rounded-md p-2" />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-gray-600 mb-1">Category</label>
-                      <select name="category" value={newProduct.category} onChange={handleInput} className="w-full border rounded-md p-2">
-                        <option>Premium Cigars</option>
-                        <option>Accessories</option>
-                      </select>
-                    </div>
-
-                    <h3 className="font-bold pt-4 border-t">Cigar Specifications</h3>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-gray-600 mb-1">Brand</label>
-                        <input name="brand" value={newProduct.brand} onChange={handleInput} placeholder="Montecristo" className="w-full border rounded-md p-2" />
-                      </div>
-                      <div>
-                        <label className="block text-gray-600 mb-1">Origin</label>
-                        <input name="origin" value={newProduct.origin} onChange={handleInput} placeholder="Nicaragua" className="w-full border rounded-md p-2" />
-                      </div>
-                      <div>
-                        <label className="block text-gray-600 mb-1">Wrapper</label>
-                        <input name="wrapper" value={newProduct.wrapper} onChange={handleInput} placeholder="Nicaragua" className="w-full border rounded-md p-2" />
-                      </div>
-                      <div>
-                        <label className="block text-gray-600 mb-1">Binder / Filler</label>
-                        <input name="binderFiller" value={newProduct.binderFiller} onChange={handleInput} placeholder="Nicaragua / Nicaragua" className="w-full border rounded-md p-2" />
-                      </div>
-                      <div>
-                        <label className="block text-gray-600 mb-1">Shape</label>
-                        <input name="shape" value={newProduct.shape} onChange={handleInput} placeholder="Torpedo" className="w-full border rounded-md p-2" />
-                      </div>
-                      <div>
-                        <label className="block text-gray-600 mb-1">Strength</label>
-                        <input name="strength" value={newProduct.strength} onChange={handleInput} placeholder="Medium - Full" className="w-full border rounded-md p-2" />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-gray-600 mb-1">Flavored</label>
-                        <input name="flavored" value={newProduct.flavored} onChange={handleInput} placeholder="No" className="w-full border rounded-md p-2" />
-                      </div>
-                      <div>
-                        <label className="block text-gray-600 mb-1">Length</label>
-                        <input name="length" value={newProduct.length} onChange={handleInput} placeholder="6.14" className="w-full border rounded-md p-2" />
-                      </div>
-                      <div>
-                        <label className="block text-gray-600 mb-1">Ring</label>
-                        <input name="ring" value={newProduct.ring} onChange={handleInput} placeholder="52" className="w-full border rounded-md p-2" />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-gray-600 mb-1">Box Info</label>
-                      <input name="boxInfo" value={newProduct.boxInfo} onChange={handleInput} placeholder="Box of 10" className="w-full border rounded-md p-2" />
-                    </div>
-
-                    <div>
-                      <label className="block text-gray-600 mb-1">Product Image File</label>
-                      <input type="file" className="w-full border rounded-md p-1.5 text-sm" />
-                    </div>
-
-                    <div>
-                      <label className="block text-gray-600 mb-1">Description</label>
-                      <textarea name="description" rows={3} value={newProduct.description} onChange={handleInput} className="w-full border rounded-md p-2"></textarea>
-                    </div>
-
-                    <div className="flex gap-4 pt-4">
-                      <button className="flex-1 bg-black text-white py-3 rounded-md font-bold hover:bg-gray-800 transition">
-                        Publish Product
-                      </button>
-                      <button 
-                        onClick={() => setProductView('table')} 
-                        className="px-6 bg-gray-200 text-black py-3 rounded-md font-bold hover:bg-gray-300 transition"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Live Product Preview (Kanan) */}
-                <div className="w-full lg:w-[350px]">
-                  <h2 className="text-lg font-bold mb-4">Live Product Preview</h2>
-                  <div className="border border-gray-200 rounded-xl p-5 shadow-sm bg-gray-50 flex flex-col">
-                    <div className="bg-white rounded-lg p-4 mb-4 flex items-center justify-center min-h-[250px] shadow-sm">
-                      {newProduct.imagePreview ? (
-                        <img src={newProduct.imagePreview} alt="Preview" className="max-w-full max-h-[250px] object-contain" />
-                      ) : (
-                        <span className="text-gray-400">No Image</span>
-                      )}
-                    </div>
-                    
-                    <h3 className="text-lg font-bold leading-tight">{newProduct.name || 'Product Name'}</h3>
-                    <p className="text-sm text-gray-500 mb-3">SKU: {newProduct.sku || '-'}</p>
-                    <hr className="border-gray-300 mb-3" />
-                    
-                    <div className="text-sm flex flex-col gap-1.5">
-                      <p><span className="font-semibold w-20 inline-block">Brand:</span> {newProduct.brand || '-'}</p>
-                      <p><span className="font-semibold w-20 inline-block">Shape:</span> {newProduct.shape || '-'}</p>
-                      <p><span className="font-semibold w-20 inline-block">Box Info:</span> {newProduct.boxInfo || '-'}</p>
-                      <p className="mt-2 text-lg font-bold">Price: ${newProduct.basePrice || '0.00'}</p>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            )
-          ) : (
-            <DynamicTable data={initialData?.[activeMenu?.dataKey || ''] || []} />
-          )}
-        </div>
-      </main>
+              <DynamicTable data={initialData?.[activeMenu?.dataKey || ''] || []} />
+            )}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
