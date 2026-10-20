@@ -15,14 +15,14 @@ function AnimatedHoverButton({ text, onClick, defaultBg, hoverBg, textColor, hov
       <div className={`absolute inset-0 ${hoverBg} -translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-[cubic-bezier(0.65,0,0.35,1)]`} />
       <div className="relative flex justify-center items-center overflow-hidden">
         <div className="flex">
-          {chars.map((c, i) => (
+          {chars.map((c: string, i: number) => (
             <span key={i} className="inline-block transition-transform duration-500 ease-[cubic-bezier(0.65,0,0.35,1)] group-hover:translate-y-[150%]" style={{ transitionDelay: `${i * 0.02}s` }}>
               {c === ' ' ? '\u00A0' : c}
             </span>
           ))}
         </div>
         <div className={`absolute inset-0 flex justify-center items-center ${hoverTextColor}`}>
-          {chars.map((c, i) => (
+          {chars.map((c: string, i: number) => (
             <span key={i} className="inline-block -translate-y-[150%] transition-transform duration-500 ease-[cubic-bezier(0.65,0,0.35,1)] group-hover:translate-y-0" style={{ transitionDelay: `${i * 0.02}s` }}>
               {c === ' ' ? '\u00A0' : c}
             </span>
