@@ -1,4 +1,4 @@
-import { prisma } from '../lib/prisma'; 
+import { prisma } from '../../lib/prisma';
 import CatalogClient from './CatalogClient';
 
 export default async function CatalogPage() {
