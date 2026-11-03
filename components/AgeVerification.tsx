@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import gsap from 'gsap';
@@ -181,73 +181,87 @@ export default function AgeVerification({ children }: { children: React.ReactNod
 
     gsap.to(uiTextRef.current, { opacity: 0, duration: 0.75, ease: "power1.in" });
     gsap.to(logoRef.current, { scale: 2.5, opacity: 0, duration: 1.5, ease: "power1.in" });
+    
+    // PERBAIKAN: Jarak diperpendek, durasi jauh lebih cepat (2.5 detik)
     gsap.to(dashRef.current, {
-      zOffset: 100, 
-      duration: 8,
-      ease: "power2.inOut",
+      zOffset: 60, 
+      duration: 2.5,
+      ease: "power2.in", 
       onComplete: () => setIsEntered(true)
     });
   };
 
-  if (isEntered) return <>{children}</>;
-
   return (
-    <div className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center overflow-hidden">
-      
-      {isLoading && (
-        <div ref={loadingTextRef} className="absolute inset-0 flex items-center justify-center z-[10002] pointer-events-none">
-          <div className="font-serif text-sm tracking-[0.2em] text-[#d4af37] uppercase">{progress}%</div>
-        </div>
-      )}
-      
-      <div ref={topMaskRef} className="absolute top-0 left-0 w-full h-1/2 bg-white z-[10001]" />
-      <div ref={bottomMaskRef} className="absolute bottom-0 left-0 w-full h-1/2 bg-white z-[10001]" />
-
-      <div className="absolute inset-0 pointer-events-none z-[10000]">
+    <>
+      {/* 3D BACKGROUND (Permanen di belakang) */}
+      <div className="fixed inset-0 z-0 pointer-events-none bg-black">
         <Canvas camera={{ position: [0, 0, 5] }}>
-          <MultiLayerClouds dashRef={dashRef} />
+          <Suspense fallback={null}>  
+            <MultiLayerClouds dashRef={dashRef} />
+          </Suspense>                 
         </Canvas>
       </div>
       
-      <div className={`relative z-[10000] flex flex-col items-center transition-opacity duration-1000 ${isEntering ? 'pointer-events-none' : ''}`}>
-        <img 
-          ref={logoRef}
-          src="/lacigars-logo.png" 
-          alt="Latin American Cigars Logo" 
-          className="w-64 mb-8 transform-gpu" 
-        />
-        
-        <div ref={uiTextRef} className="flex flex-col items-center">
-          <h1 className="text-3xl font-bold text-[#5c3616] mb-4 tracking-widest uppercase text-center">
-            WELCOME!
-          </h1>
-          <p className="text-[#5c3616] text-sm max-w-md text-center mb-10 leading-relaxed px-4">
-            This website requires you to be 21 years of age or older. Please verify your age to view content, or click "No" otherwise.
-          </p>
+      {/* POP-UP UI VERIFIKASI (Hilang setelah animasi selesai) */}
+      {!isEntered && (
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden pointer-events-auto">
           
-          <div className="flex gap-6">
-            <AnimatedHoverButton 
-              text="Yes, I am 21" 
-              defaultBg="bg-[#5c3616]" 
-              hoverBg="bg-[#d4af37]"
-              textColor="text-white"
-              hoverTextColor="text-[#5c3616]"
-              border="border border-[#5c3616]"
-              onClick={handleEnter} 
+          {isLoading && (
+            <div ref={loadingTextRef} className="absolute inset-0 flex items-center justify-center z-[10002] pointer-events-none">
+              <div className="font-serif text-sm tracking-[0.2em] text-[#d4af37] uppercase">{progress}%</div>
+            </div>
+          )}
+          
+          <div ref={topMaskRef} className="absolute top-0 left-0 w-full h-1/2 bg-white z-[10001]" />
+          <div ref={bottomMaskRef} className="absolute bottom-0 left-0 w-full h-1/2 bg-white z-[10001]" />
+
+          <div className={`relative z-[10000] flex flex-col items-center transition-opacity duration-1000 ${isEntering ? 'pointer-events-none' : ''}`}>
+            <img 
+              ref={logoRef}
+              src="/lacigars-logo.png" 
+              alt="Latin American Cigars Logo" 
+              className="w-64 mb-8 transform-gpu" 
             />
-            <AnimatedHoverButton 
-              text="No" 
-              defaultBg="bg-transparent"
-              hoverBg="bg-[#5c3616]"
-              textColor="text-[#5c3616]"
-              hoverTextColor="text-white"
-              border="border border-[#5c3616]"
-              onClick={() => window.location.href = 'https://google.com'} 
-            />
+            
+            <div ref={uiTextRef} className="flex flex-col items-center">
+              <h1 className="text-3xl font-bold text-[#5c3616] mb-4 tracking-widest uppercase text-center">
+                WELCOME!
+              </h1>
+              <p className="text-[#5c3616] text-sm max-w-md text-center mb-10 leading-relaxed px-4">
+                This website requires you to be 21 years of age or older. Please verify your age to view content, or click "No" otherwise.
+              </p>
+              
+              <div className="flex gap-6">
+                <AnimatedHoverButton 
+                  text="Yes, I am 21" 
+                  defaultBg="bg-[#5c3616]" 
+                  hoverBg="bg-[#d4af37]"
+                  textColor="text-white"
+                  hoverTextColor="text-[#5c3616]"
+                  border="border border-[#5c3616]"
+                  onClick={handleEnter} 
+                />
+                <AnimatedHoverButton 
+                  text="No" 
+                  defaultBg="bg-transparent"
+                  hoverBg="bg-[#5c3616]"
+                  textColor="text-[#5c3616]"
+                  hoverTextColor="text-white"
+                  border="border border-[#5c3616]"
+                  onClick={() => window.location.href = 'https://google.com'} 
+                />
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-      
-    </div>
+      )}
+
+      {/* HALAMAN UTAMA (Muncul menimpa awan di z-10) */}
+      {isEntered && (
+        <div className="relative z-10">
+          {children}
+        </div>
+      )}
+    </>
   );
 }

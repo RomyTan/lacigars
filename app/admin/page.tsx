@@ -2,7 +2,6 @@ import { prisma } from '../../lib/prisma';
 import AdminDashboardClient from './AdminDashboardClient';
 
 export default async function AdminPage() {
-  // Gunakan Promise.all agar ke-10 tabel ditarik secara bersamaan (paralel), loading jadi jauh lebih cepat
   const [
     products,
     categories,
@@ -40,5 +39,8 @@ export default async function AdminPage() {
     orderItems
   };
 
-  return <AdminDashboardClient initialData={initialData} />;
+  // Konversi semua tipe khusus Prisma (Decimal, Date) menjadi objek/string plain JS
+  const sanitizedData = JSON.parse(JSON.stringify(initialData));
+
+  return <AdminDashboardClient initialData={sanitizedData} />;
 }
