@@ -1,0 +1,721 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  ADMIN
+  OFFICE
+  SALES_REP
+  CUSTOMER
+}
+
+enum CustomerPricingType {
+  QUICKBOOKS
+  WHOLESALE
+}
+
+enum ProductAccessOverrideType {
+  ALLOW
+  DENY
+}
+
+enum OrderSource {
+  OFFICE
+  SALES_REP
+  CUSTOMER_PORTAL
+  BACKORDER
+}
+
+enum OrderStatus {
+  DRAFT
+  SUBMITTED
+  PRINTED
+  READY
+  EXPORTING
+  EXPORTED
+  COMPLETED
+  VOIDED
+}
+
+enum PriceSource {
+  QUICKBOOKS
+  WHOLESALE
+  CUSTOMER_SPECIAL
+  MANUAL_OVERRIDE
+}
+
+enum InventoryCommitmentStatus {
+  RESERVED
+  AWAITING_QBO_CONFIRMATION
+  RELEASED
+  CANCELLED
+}
+
+enum BackorderStatus {
+  OPEN
+  PARTIALLY_FULFILLED
+  FULFILLED
+  CANCELLED
+}
+
+enum SyncType {
+  DAILY_OPENING
+  MANUAL
+  AUTOMATIC
+  WEBHOOK
+}
+
+enum SyncStatus {
+  RUNNING
+  SUCCESS
+  PARTIAL_SUCCESS
+  FAILED
+}
+
+enum ExportBatchStatus {
+  RUNNING
+  COMPLETED
+  PARTIAL_FAILED
+  FAILED
+}
+
+enum ExportItemStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum WebhookEventStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+}
+
+// ============================================================
+// AUTHENTICATED USERS
+// ============================================================
+
+model User {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
+  passwordHash String?
+  name         String
+  role         UserRole  @default(CUSTOMER)
+  isActive     Boolean   @default(true)
+
+  customerId   Int?
+  customer     Customer? @relation("CustomerPortalUsers", fields: [customerId], references: [id])
+
+  assignedCustomers Customer[] @relation("AssignedSalesRep")
+  createdOrders     Order[]    @relation("OrderCreatedBy")
+  salesRepOrders    Order[]    @relation("OrderSalesRep")
+
+  startedSyncRuns   QuickBooksSyncRun[]    @relation("SyncStartedBy")
+  exportBatches     QuickBooksExportBatch[] @relation("ExportBatchStartedBy")
+  auditLogs         AuditLog[]              @relation("AuditActor")
+  cancelledBackorders Backorder[]           @relation("BackorderCancelledBy")
+
+  // TAMBAHAN: Relasi CartDraft yang dikembalikan
+  cartDraft CartDraft?
+
+  lastLoginAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([role, isActive])
+}
+
+// ============================================================
+// CART DRAFT (FITUR LO YANG DIKEMBALIKAN)
+// ============================================================
+
+model CartDraft {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cartData  String   @db.LongText
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// CUSTOMER / COMPANY
+// ============================================================
+
+model Customer {
+  id            Int     @id @default(autoincrement())
+  qboCustomerId String? @unique
+
+  customerNumber String?
+  displayName    String
+  companyName    String?
+  primaryEmail   String?
+  phone          String?
+
+  billingAddress  Json?
+  shippingAddress Json?
+
+  isActive      Boolean @default(true)
+  portalEnabled Boolean @default(false)
+
+  balance           Decimal @default(0) @db.Decimal(12, 2)
+  pastDueBalance    Decimal @default(0) @db.Decimal(12, 2)
+  oldestPastDueDays Int     @default(0)
+  termsName         String?
+
+  pricingType CustomerPricingType @default(QUICKBOOKS)
+
+  assignedSalesRepId Int?
+  assignedSalesRep   User? @relation("AssignedSalesRep", fields: [assignedSalesRepId], references: [id])
+
+  users                  User[]                          @relation("CustomerPortalUsers")
+  categoryAccess         CustomerCategoryAccess[]
+  productAccessOverrides CustomerProductAccessOverride[]
+  specialPrices          CustomerSpecialPrice[]
+  productStats           CustomerProductStat[]
+  orders                 Order[]
+  backorders             Backorder[]
+  qboInvoices             QuickBooksInvoiceSnapshot[]
+
+  lastQboSyncAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([displayName])
+  @@index([assignedSalesRepId, isActive])
+  @@index([pricingType])
+}
+
+// ============================================================
+// QUICKBOOKS PRODUCT CATEGORIES
+// ============================================================
+
+model Category {
+  id            Int     @id @default(autoincrement())
+  qboCategoryId String? @unique
+
+  name     String
+  fullName String?
+  isActive Boolean @default(true)
+
+  isPublic Boolean @default(false)
+
+  parentId Int?
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryHierarchy")
+
+  products       Product[]
+  customerAccess CustomerCategoryAccess[]
+
+  lastQboSyncAt DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([parentId])
+  @@index([name])
+}
+
+// ============================================================
+// PRODUCTS
+// ============================================================
+
+model Product {
+  id        Int     @id @default(autoincrement())
+  qboItemId String? @unique
+  sku       String  @unique
+
+  name        String
+  description String? @db.Text
+  image       String?
+  images      Json?
+
+  brand        String?
+  origin       String?
+  wrapper      String?
+  binderFiller String?
+  shape        String?
+  strength     String?
+  flavored     String? @default("No")
+  length       String?
+  ring         String?
+  boxInfo      String?
+
+  quickBooksPrice Decimal @default(0) @db.Decimal(10, 2)
+  wholesalePrice  Decimal? @db.Decimal(10, 2)
+  qboQtyOnHand    Decimal @default(0) @db.Decimal(14, 4)
+
+  isActive Boolean @default(true)
+
+  publicVisibilityOverride Boolean?
+
+  categoryId Int
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  accessOverrides    CustomerProductAccessOverride[]
+  specialPrices      CustomerSpecialPrice[]
+  customerStats      CustomerProductStat[]
+  orderItems         OrderItem[]
+  commitments        InventoryCommitment[]
+  backorders          Backorder[]
+  qboInvoiceLines     QuickBooksInvoiceLineSnapshot[]
+
+  lastQboSyncAt DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([categoryId, isActive])
+  @@index([name])
+}
+
+// ============================================================
+// CUSTOMER PORTFOLIO ACCESS
+// ============================================================
+
+model CustomerCategoryAccess {
+  id         Int     @id @default(autoincrement())
+  customerId Int
+  categoryId Int
+  isEnabled  Boolean @default(false)
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([customerId, categoryId])
+  @@index([categoryId, isEnabled])
+}
+
+model CustomerProductAccessOverride {
+  id         Int                       @id @default(autoincrement())
+  customerId Int
+  productId  Int
+  access     ProductAccessOverrideType
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([customerId, productId])
+  @@index([productId, access])
+}
+
+// ============================================================
+// THREE-TIER PRICING
+// ============================================================
+
+model CustomerSpecialPrice {
+  id         Int     @id @default(autoincrement())
+  customerId Int
+  productId  Int
+  price      Decimal @db.Decimal(10, 2)
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([customerId, productId])
+  @@index([productId])
+}
+
+// ============================================================
+// DERIVED CUSTOMER / PRODUCT PURCHASE STATS
+// ============================================================
+
+model CustomerProductStat {
+  id         Int @id @default(autoincrement())
+  customerId Int
+  productId  Int
+
+  lastPurchaseDate DateTime? @db.Date
+  lastQty          Decimal?  @db.Decimal(14, 4)
+  lastPrice        Decimal?  @db.Decimal(10, 2)
+
+  purchaseCount60d Int     @default(0)
+  qty60d           Decimal @default(0) @db.Decimal(14, 4)
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([customerId, productId])
+  @@index([customerId, lastPurchaseDate])
+}
+
+// ============================================================
+// ORDERS
+// ============================================================
+
+model Order {
+  id          Int    @id @default(autoincrement())
+  orderNumber String @unique
+
+  customerId Int
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  createdByUserId Int
+  createdBy       User @relation("OrderCreatedBy", fields: [createdByUserId], references: [id])
+
+  salesRepId Int?
+  salesRep   User? @relation("OrderSalesRep", fields: [salesRepId], references: [id])
+
+  source OrderSource
+  status OrderStatus @default(DRAFT)
+
+  poNumber String?
+  notes    String? @db.Text
+
+  requestedUnits Int @default(0)
+  finalUnits     Int @default(0)
+  backorderUnits Int @default(0)
+
+  requestedTotalAmount Decimal @default(0) @db.Decimal(12, 2)
+  finalTotalAmount     Decimal @default(0) @db.Decimal(12, 2)
+
+  pickListVersion Int @default(0)
+
+  qboInvoiceId     String? @unique
+  qboInvoiceNumber String?
+
+  exportAttemptCount Int @default(0)
+
+  submittedAt DateTime?
+  printedAt   DateTime?
+  finalizedAt DateTime?
+  exportedAt  DateTime?
+  completedAt DateTime?
+  voidedAt    DateTime?
+  voidReason  String?
+
+  items        OrderItem[]
+  commitments  InventoryCommitment[]
+  backorders   Backorder[] @relation("OriginalOrderBackorders")
+  fulfillments BackorderFulfillment[] @relation("FulfillmentOrder")
+  exportItems  QuickBooksExportItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId, createdAt])
+  @@index([status, createdAt])
+  @@index([source, createdAt])
+  @@index([salesRepId, createdAt])
+}
+
+// ============================================================
+// ORDER LINE
+// ============================================================
+
+model OrderItem {
+  id        Int @id @default(autoincrement())
+  orderId   Int
+  productId Int
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  sku  String
+  name String
+
+  requestedQty    Int @default(0)
+  allocatedQty    Int @default(0)
+  actualPickedQty Int?
+  finalInvoiceQty Int @default(0)
+  backorderQty    Int @default(0)
+
+  calculatedUnitPrice Decimal @db.Decimal(10, 2)
+  finalUnitPrice      Decimal @db.Decimal(10, 2)
+  priceSource         PriceSource
+
+  requestedLineTotal Decimal @default(0) @db.Decimal(12, 2)
+  finalLineTotal     Decimal @default(0) @db.Decimal(12, 2)
+
+  lastPriceSnapshot        Decimal? @db.Decimal(10, 2)
+  lastQtySnapshot          Decimal? @db.Decimal(14, 4)
+  lastPurchaseDateSnapshot DateTime? @db.Date
+
+  lineNotes String? @db.Text
+
+  commitments InventoryCommitment[]
+  backorder    Backorder?
+  fulfillmentLinks BackorderFulfillment[] @relation("FulfillmentOrderItem")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+// ============================================================
+// INVENTORY COMMITMENTS
+// ============================================================
+
+model InventoryCommitment {
+  id          Int @id @default(autoincrement())
+  orderId     Int
+  orderItemId Int
+  productId   Int
+
+  quantity Int
+  status   InventoryCommitmentStatus @default(RESERVED)
+
+  order     Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id])
+
+  releasedAt     DateTime?
+  qboConfirmedAt DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([productId, status])
+  @@index([orderId, status])
+}
+
+// ============================================================
+// BACKORDERS
+// ============================================================
+
+model Backorder {
+  id              Int    @id @default(autoincrement())
+  backorderNumber String @unique
+
+  customerId Int
+  productId  Int
+
+  originalOrderId     Int
+  originalOrderItemId Int @unique
+
+  originalQty  Int
+  openQty      Int
+  fulfilledQty Int @default(0)
+  cancelledQty Int @default(0)
+
+  status BackorderStatus @default(OPEN)
+
+  cancelReason      String?
+  cancelledByUserId Int?
+  cancelledAt       DateTime?
+  fulfilledAt       DateTime?
+
+  customer          Customer  @relation(fields: [customerId], references: [id])
+  product           Product   @relation(fields: [productId], references: [id])
+  originalOrder     Order     @relation("OriginalOrderBackorders", fields: [originalOrderId], references: [id])
+  originalOrderItem OrderItem @relation(fields: [originalOrderItemId], references: [id])
+  cancelledBy       User?     @relation("BackorderCancelledBy", fields: [cancelledByUserId], references: [id])
+
+  fulfillments BackorderFulfillment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId, status])
+  @@index([productId, status])
+}
+
+model BackorderFulfillment {
+  id Int @id @default(autoincrement())
+
+  backorderId Int
+
+  fulfillmentOrderId     Int
+  fulfillmentOrderItemId Int
+
+  quantity Int
+
+  backorder           Backorder @relation(fields: [backorderId], references: [id], onDelete: Cascade)
+  fulfillmentOrder    Order     @relation("FulfillmentOrder", fields: [fulfillmentOrderId], references: [id])
+  fulfillmentOrderItem OrderItem @relation("FulfillmentOrderItem", fields: [fulfillmentOrderItemId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([backorderId, fulfillmentOrderItemId])
+  @@index([fulfillmentOrderId])
+}
+
+// ============================================================
+// QUICKBOOKS INVOICE CACHE
+// ============================================================
+
+model QuickBooksInvoiceSnapshot {
+  id           Int    @id @default(autoincrement())
+  qboInvoiceId String @unique
+  docNumber    String?
+
+  customerId Int
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  txnDate DateTime  @db.Date
+  dueDate DateTime? @db.Date
+
+  totalAmount Decimal @default(0) @db.Decimal(12, 2)
+  balance     Decimal @default(0) @db.Decimal(12, 2)
+
+  isOpen Boolean @default(false)
+
+  lines QuickBooksInvoiceLineSnapshot[]
+
+  lastSyncedAt DateTime @default(now())
+
+  @@index([customerId, txnDate])
+  @@index([customerId, isOpen])
+}
+
+model QuickBooksInvoiceLineSnapshot {
+  id        Int @id @default(autoincrement())
+  invoiceId Int
+
+  productId Int?
+  qboItemId String?
+
+  sku  String?
+  name String
+
+  quantity  Decimal @default(0) @db.Decimal(14, 4)
+  unitPrice Decimal @default(0) @db.Decimal(10, 2)
+  amount    Decimal @default(0) @db.Decimal(12, 2)
+
+  invoice QuickBooksInvoiceSnapshot @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product Product?                  @relation(fields: [productId], references: [id])
+
+  @@index([invoiceId])
+  @@index([productId])
+}
+
+// ============================================================
+// QUICKBOOKS SYNCHRONIZATION
+// ============================================================
+
+model QuickBooksSyncRun {
+  id Int @id @default(autoincrement())
+
+  type   SyncType
+  status SyncStatus @default(RUNNING)
+
+  businessDate DateTime? @db.Date
+
+  startedByUserId Int?
+  startedBy       User? @relation("SyncStartedBy", fields: [startedByUserId], references: [id])
+
+  customersUpdated Int @default(0)
+  productsUpdated  Int @default(0)
+  categoriesUpdated Int @default(0)
+  inventoryUpdated Int @default(0)
+  balancesUpdated  Int @default(0)
+  invoicesUpdated  Int @default(0)
+
+  errorDetails Json?
+
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+
+  @@index([type, businessDate])
+  @@index([status, startedAt])
+}
+
+// ============================================================
+// BULK QUICKBOOKS INVOICE EXPORT
+// ============================================================
+
+model QuickBooksExportBatch {
+  id Int @id @default(autoincrement())
+
+  status ExportBatchStatus @default(RUNNING)
+
+  startedByUserId Int
+  startedBy       User @relation("ExportBatchStartedBy", fields: [startedByUserId], references: [id])
+
+  totalOrders  Int @default(0)
+  successCount Int @default(0)
+  failedCount  Int @default(0)
+
+  items QuickBooksExportItem[]
+
+  createdAt   DateTime @default(now())
+  completedAt DateTime?
+
+  @@index([status, createdAt])
+}
+
+model QuickBooksExportItem {
+  id Int @id @default(autoincrement())
+
+  batchId Int
+  orderId Int
+
+  status ExportItemStatus @default(PENDING)
+
+  qboInvoiceId     String?
+  qboInvoiceNumber String?
+
+  errorCode    String?
+  errorMessage String? @db.Text
+
+  batch QuickBooksExportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  order Order                 @relation(fields: [orderId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([batchId, orderId])
+  @@index([orderId, status])
+}
+
+// ============================================================
+// QUICKBOOKS WEBHOOK EVENT INBOX
+// ============================================================
+
+model QuickBooksWebhookEvent {
+  id Int @id @default(autoincrement())
+
+  eventKey  String @unique
+  entityType String
+  entityId   String
+  operation  String
+
+  status  WebhookEventStatus @default(RECEIVED)
+  payload Json
+
+  receivedAt  DateTime @default(now())
+  processedAt DateTime?
+  errorMessage String? @db.Text
+
+  @@index([status, receivedAt])
+  @@index([entityType, entityId])
+}
+
+// ============================================================
+// AUDIT TRAIL
+// ============================================================
+
+model AuditLog {
+  id Int @id @default(autoincrement())
+
+  actorUserId Int?
+  actor       User? @relation("AuditActor", fields: [actorUserId], references: [id])
+
+  action     String
+  entityType String
+  entityId   String?
+
+  beforeData Json?
+  afterData  Json?
+  metadata   Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorUserId, createdAt])
+}

@@ -1,0 +1,1136 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  ADMIN
+  OFFICE
+  SALES_REP
+  CUSTOMER
+}
+
+enum CustomerPricingType {
+  QUICKBOOKS
+  WHOLESALE
+}
+
+enum ProductAccessOverrideType {
+  ALLOW
+  DENY
+}
+
+enum OrderSource {
+  OFFICE
+  SALES_REP
+  CUSTOMER_PORTAL
+  BACKORDER
+}
+
+enum OrderStatus {
+  DRAFT
+  SUBMITTED
+  PRINTED
+  READY
+  EXPORTING
+  EXPORT_REVIEW
+  EXPORTED
+  COMPLETED
+  VOIDED
+}
+
+enum PriceSource {
+  QUICKBOOKS
+  WHOLESALE
+  CUSTOMER_SPECIAL
+  MANUAL_OVERRIDE
+}
+
+// MANUAL_OVERRIDE may be used by authorized Office/Admin/Sales Rep workflows.
+// calculatedUnitPrice preserves the system-calculated price.
+// finalUnitPrice preserves the submitted/final price.
+// Any override must identify the user and be auditable.
+
+enum InventoryCommitmentStatus {
+  RESERVED
+  AWAITING_QBO_CONFIRMATION
+  RELEASED
+  CANCELLED
+}
+
+enum BackorderStatus {
+  OPEN
+  PARTIALLY_FULFILLED
+  FULFILLED
+  CANCELLED
+}
+
+enum SyncType {
+  DAILY_OPENING
+  MANUAL
+  AUTOMATIC
+  WEBHOOK
+}
+
+enum SyncStatus {
+  RUNNING
+  SUCCESS
+  PARTIAL_SUCCESS
+  FAILED
+}
+
+enum ExportBatchStatus {
+  RUNNING
+  COMPLETED
+  PARTIAL_FAILED
+  FAILED
+}
+
+enum ExportItemStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  UNKNOWN
+  RECONCILIATION_REQUIRED
+}
+
+enum WebhookEventStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+}
+
+
+enum QuickBooksConnectionStatus {
+  CONNECTED
+  NEEDS_RECONNECT
+  DISCONNECTED
+  ERROR
+}
+
+enum QuickBooksEnvironment {
+  SANDBOX
+  PRODUCTION
+}
+
+enum RetailLabelRoundingRule {
+  NEAREST_9
+}
+
+enum SellingUnitType {
+  MASO
+  BOX
+  DISPLAY
+  OTHER
+}
+
+
+enum ProspectStatus {
+  PENDING_REVIEW
+  NEEDS_INFO
+  APPROVED
+  REJECTED
+  CONVERTED
+}
+
+enum ProspectSource {
+  SALES_REP
+  OFFICE
+  ADMIN
+}
+
+enum CustomerContactMethod {
+  VISIT
+  PHONE
+  TEXT
+  EMAIL
+  OTHER
+}
+
+enum NotificationSeverity {
+  INFO
+  WARNING
+  HIGH
+  CRITICAL
+}
+
+// ============================================================
+// AUTHENTICATED USERS
+// A User is a person/login. A Customer is a business/account.
+// ============================================================
+
+model User {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
+  passwordHash String?
+  name         String
+  role         UserRole  @default(CUSTOMER)
+  isActive     Boolean   @default(true)
+
+  // Only CUSTOMER users normally have customerId.
+  customerId   Int?
+  customer     Customer? @relation("CustomerPortalUsers", fields: [customerId], references: [id])
+
+  assignedCustomers Customer[] @relation("AssignedSalesRep")
+  createdOrders     Order[]    @relation("OrderCreatedBy")
+  salesRepOrders    Order[]    @relation("OrderSalesRep")
+  cartDrafts        CartDraft[]
+
+  // Prospect / field customer acquisition workflow.
+  createdProspects     Prospect[] @relation("ProspectCreatedBy")
+  originatingProspects Prospect[] @relation("ProspectOriginatingSalesRep")
+  reviewedProspects    Prospect[] @relation("ProspectReviewedBy")
+
+  // Sales Rep follow-up/contact history.
+  customerContactLogs CustomerContactLog[] @relation("CustomerContactSalesRep")
+
+  // Order-line manual price adjustments.
+  priceAdjustedOrderItems OrderItem[] @relation("OrderItemPriceAdjustedBy")
+
+  // Notification recipients.
+  notificationRecipients NotificationRecipient[]
+
+  // Admin System Settings updates.
+  systemConfigUpdates SystemConfig[] @relation("SystemConfigUpdatedBy")
+
+  startedSyncRuns   QuickBooksSyncRun[]    @relation("SyncStartedBy")
+  exportBatches     QuickBooksExportBatch[] @relation("ExportBatchStartedBy")
+  auditLogs         AuditLog[]              @relation("AuditActor")
+  cancelledBackorders Backorder[]           @relation("BackorderCancelledBy")
+
+  sessionVersion    Int       @default(1)
+  passwordChangedAt  DateTime?
+  mfaEnabled         Boolean   @default(false)
+
+  lastLoginAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([role, isActive])
+}
+
+// ============================================================
+// CUSTOMER / COMPANY
+// QuickBooks remains the master source for customer/account data.
+// ============================================================
+
+model Customer {
+  id            Int     @id @default(autoincrement())
+  qboCustomerId String? @unique
+
+  customerNumber String?
+  displayName    String
+  companyName    String?
+  primaryEmail   String?
+  phone          String?
+
+  billingAddress  Json?
+  shippingAddress Json?
+
+  isActive      Boolean @default(true)
+  portalEnabled Boolean @default(false)
+
+  // Cached operational fields from QuickBooks.
+  balance           Decimal @default(0) @db.Decimal(12, 2)
+  pastDueBalance    Decimal @default(0) @db.Decimal(12, 2)
+  oldestPastDueDays Int     @default(0)
+  termsName         String?
+
+  // Cached customer-level purchase activity from QuickBooks/history.
+  // null means no completed purchase has been found.
+  lastPurchaseDate DateTime? @db.Date
+
+  pricingType CustomerPricingType @default(QUICKBOOKS)
+
+  // LAC-only retail price-gun labeling defaults.
+  defaultRetailLabelMarginPct Decimal? @db.Decimal(5, 2)
+  retailLabelRoundingRule     RetailLabelRoundingRule @default(NEAREST_9)
+
+  assignedSalesRepId Int?
+  assignedSalesRep   User? @relation("AssignedSalesRep", fields: [assignedSalesRepId], references: [id])
+
+  users                  User[]                          @relation("CustomerPortalUsers")
+  categoryAccess         CustomerCategoryAccess[]
+  productAccessOverrides CustomerProductAccessOverride[]
+  specialPrices          CustomerSpecialPrice[]
+  retailLabelRules       CustomerRetailLabelRule[]
+  productStats           CustomerProductStat[]
+  orders                 Order[]
+  backorders             Backorder[]
+  qboInvoices             QuickBooksInvoiceSnapshot[]
+
+  // Optional source prospect when this customer originated in the field.
+  sourceProspect Prospect? @relation("ProspectConvertedCustomer")
+
+  // Sales activity / follow-up contact log.
+  contactLogs CustomerContactLog[]
+
+  lastQboSyncAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([displayName])
+  @@index([assignedSalesRepId, isActive])
+  @@index([pricingType])
+}
+
+// ============================================================
+// QUICKBOOKS PRODUCT CATEGORIES
+// Supports hierarchy + public visibility.
+// ============================================================
+
+model Category {
+  id            Int     @id @default(autoincrement())
+  qboCategoryId String? @unique
+
+  name     String
+  fullName String?
+  isActive Boolean @default(true)
+
+  // Public website category visibility.
+  isPublic Boolean @default(false)
+
+  parentId Int?
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryHierarchy")
+
+  products       Product[]
+  customerAccess CustomerCategoryAccess[]
+
+  lastQboSyncAt DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([parentId])
+  @@index([name])
+}
+
+// ============================================================
+// PRODUCTS
+// QuickBooks Price + Wholesale Price.
+// Customer Special Price is stored separately per customer/product.
+// ============================================================
+
+model Product {
+  id        Int     @id @default(autoincrement())
+  qboItemId String? @unique
+  sku       String  @unique
+
+  name        String
+  description String? @db.Text
+  image       String?
+  images      Json?
+
+  brand        String?
+  origin       String?
+  wrapper      String?
+  binderFiller String?
+  shape        String?
+  strength     String?
+  flavored     String? @default("No")
+  length       String?
+  ring         String?
+  boxInfo      String?
+
+  // Master/default selling price synced from QuickBooks.
+  quickBooksPrice Decimal @default(0) @db.Decimal(10, 2)
+
+  // LAC-managed wholesale price.
+  wholesalePrice Decimal? @db.Decimal(10, 2)
+
+  // Cached QuickBooks inventory.
+  qboQtyOnHand Decimal @default(0) @db.Decimal(14, 4)
+
+  // LAC-only packaging metadata used only when a Customer + Product
+  // retail price-gun rule exists.
+  retailUnitsPerSellingUnit Int?
+  sellingUnitType           SellingUnitType?
+
+  isActive Boolean @default(true)
+
+  // null = inherit Category.isPublic.
+  publicVisibilityOverride Boolean?
+
+  categoryId Int
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  accessOverrides    CustomerProductAccessOverride[]
+  specialPrices      CustomerSpecialPrice[]
+  retailLabelRules   CustomerRetailLabelRule[]
+  customerStats      CustomerProductStat[]
+  orderItems         OrderItem[]
+  commitments        InventoryCommitment[]
+  backorders          Backorder[]
+  qboInvoiceLines     QuickBooksInvoiceLineSnapshot[]
+
+  lastQboSyncAt DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([categoryId, isActive])
+  @@index([name])
+}
+
+// ============================================================
+// CUSTOMER PORTFOLIO ACCESS
+//
+// Effective access logic:
+// 1) CustomerProductAccessOverride (ALLOW / DENY)
+// 2) CustomerCategoryAccess.isEnabled
+// 3) If no category access row exists, treat as NOT ENABLED.
+//
+// Office/Admin/Sales interfaces are not restricted by customer portal
+// catalog visibility rules unless explicitly required.
+// ============================================================
+
+model CustomerCategoryAccess {
+  id         Int     @id @default(autoincrement())
+  customerId Int
+  categoryId Int
+  isEnabled  Boolean @default(false)
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([customerId, categoryId])
+  @@index([categoryId, isEnabled])
+}
+
+model CustomerProductAccessOverride {
+  id         Int                       @id @default(autoincrement())
+  customerId Int
+  productId  Int
+  access     ProductAccessOverrideType
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([customerId, productId])
+  @@index([productId, access])
+}
+
+// ============================================================
+// THREE-TIER PRICING
+//
+// Effective price:
+// 1) CustomerSpecialPrice
+// 2) Product.wholesalePrice if Customer.pricingType = WHOLESALE
+// 3) Product.quickBooksPrice
+//
+// No multiplier-based pricing tier model is required.
+// ============================================================
+
+model CustomerSpecialPrice {
+  id         Int     @id @default(autoincrement())
+  customerId Int
+  productId  Int
+  price      Decimal @db.Decimal(10, 2)
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([customerId, productId])
+  @@index([productId])
+}
+
+
+// ============================================================
+// CUSTOMER + PRODUCT RETAIL PRICE-GUN RULE
+//
+// Labeling eligibility is customer-product specific.
+// Product stores inherent packaging data only.
+// ============================================================
+
+model CustomerRetailLabelRule {
+  id         Int @id @default(autoincrement())
+  customerId Int
+  productId  Int
+
+  enabled Boolean @default(true)
+
+  // null = use Customer.defaultRetailLabelMarginPct
+  marginPctOverride Decimal? @db.Decimal(5, 2)
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([customerId, productId])
+  @@index([customerId, enabled])
+  @@index([productId])
+}
+
+// ============================================================
+// DERIVED CUSTOMER / PRODUCT PURCHASE STATS
+// Cached from QuickBooks history + completed LAC Orders.
+//
+// Sales Rep API must only expose Last Price/Qty/Date when within
+// the permitted 60-day window.
+// ============================================================
+
+model CustomerProductStat {
+  id         Int @id @default(autoincrement())
+  customerId Int
+  productId  Int
+
+  lastPurchaseDate DateTime? @db.Date
+  lastQty          Decimal?  @db.Decimal(14, 4)
+  lastPrice        Decimal?  @db.Decimal(10, 2)
+
+  purchaseCount60d Int     @default(0)
+  qty60d           Decimal @default(0) @db.Decimal(14, 4)
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([customerId, productId])
+  @@index([customerId, lastPurchaseDate])
+}
+
+
+// ============================================================
+// PROSPECT / NEW CUSTOMER REQUEST
+//
+// A Prospect is NOT an active Customer.
+// Sales Rep can capture it in the field; Office/Admin reviews and
+// converts only after QuickBooks customer mapping is valid.
+// ============================================================
+
+model Prospect {
+  id Int @id @default(autoincrement())
+
+  status ProspectStatus @default(PENDING_REVIEW)
+  source ProspectSource @default(SALES_REP)
+
+  businessName String
+  contactName  String
+  phone        String
+  email        String?
+
+  streetAddress String
+  city          String
+  state         String
+  zip           String
+
+  businessType String?
+  notes        String? @db.Text
+  officeNote   String? @db.Text
+
+  originatingSalesRepId Int?
+  originatingSalesRep   User? @relation("ProspectOriginatingSalesRep", fields: [originatingSalesRepId], references: [id])
+
+  createdByUserId Int
+  createdBy       User @relation("ProspectCreatedBy", fields: [createdByUserId], references: [id])
+
+  reviewedByUserId Int?
+  reviewedBy       User? @relation("ProspectReviewedBy", fields: [reviewedByUserId], references: [id])
+
+  // Set only after successful customer creation/linking.
+  convertedCustomerId Int? @unique
+  convertedCustomer   Customer? @relation("ProspectConvertedCustomer", fields: [convertedCustomerId], references: [id])
+
+  reviewedAt  DateTime?
+  rejectedAt  DateTime?
+  convertedAt DateTime?
+
+  rejectionReason String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([originatingSalesRepId, status])
+  @@index([businessName])
+  @@index([phone])
+  @@index([email])
+}
+
+// ============================================================
+// SALES CUSTOMER FOLLOW-UP / CONTACT LOG
+//
+// Used by Sales Rep follow-up workflow (e.g. customers with
+// 15+ days since last purchase). Days since purchase is derived
+// from Customer.lastPurchaseDate; contact history is stored here.
+// ============================================================
+
+model CustomerContactLog {
+  id Int @id @default(autoincrement())
+
+  customerId Int
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  salesRepId Int
+  salesRep   User @relation("CustomerContactSalesRep", fields: [salesRepId], references: [id])
+
+  method CustomerContactMethod @default(OTHER)
+  notes  String? @db.Text
+
+  contactedAt   DateTime @default(now())
+  nextFollowUpAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([customerId, contactedAt])
+  @@index([salesRepId, contactedAt])
+  @@index([nextFollowUpAt])
+}
+
+// ============================================================
+// SAVED CUSTOMER PORTAL CART
+// One saved draft cart per authenticated user.
+// ============================================================
+
+model CartDraft {
+  id       Int  @id @default(autoincrement())
+  userId   Int  @unique
+  user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Flexible serialized draft payload for the portal.
+  // Authoritative prices/access are always recalculated by the API at submit time.
+  cartData String @db.LongText
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// ORDERS
+// One central order model for Office, Sales Rep, Customer Portal,
+// and orders generated from backorders.
+// ============================================================
+
+model Order {
+  id          Int    @id @default(autoincrement())
+  orderNumber String @unique
+
+  customerId Int
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  createdByUserId Int
+  createdBy       User @relation("OrderCreatedBy", fields: [createdByUserId], references: [id])
+
+  salesRepId Int?
+  salesRep   User? @relation("OrderSalesRep", fields: [salesRepId], references: [id])
+
+  source OrderSource
+  status OrderStatus @default(DRAFT)
+
+  poNumber String?
+  notes    String? @db.Text
+
+  requestedUnits Int @default(0)
+  finalUnits     Int @default(0)
+  backorderUnits Int @default(0)
+
+  requestedTotalAmount Decimal @default(0) @db.Decimal(12, 2)
+  finalTotalAmount     Decimal @default(0) @db.Decimal(12, 2)
+
+  pickListVersion Int @default(0)
+
+  // Retail price-gun settings snapshotted at order creation/finalization.
+  retailLabelDefaultMarginPct Decimal? @db.Decimal(5, 2)
+  retailLabelRoundingRule     RetailLabelRoundingRule?
+
+  // QuickBooks invoice mapping after export.
+  qboInvoiceId     String? @unique
+  qboInvoiceNumber String?
+
+  exportAttemptCount Int @default(0)
+
+  submittedAt DateTime?
+  printedAt   DateTime?
+  finalizedAt DateTime?
+  exportedAt  DateTime?
+  completedAt DateTime?
+  voidedAt    DateTime?
+  voidReason  String?
+
+  items        OrderItem[]
+  commitments  InventoryCommitment[]
+  backorders   Backorder[] @relation("OriginalOrderBackorders")
+  fulfillments BackorderFulfillment[] @relation("FulfillmentOrder")
+  exportItems  QuickBooksExportItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId, createdAt])
+  @@index([status, createdAt])
+  @@index([source, createdAt])
+  @@index([salesRepId, createdAt])
+}
+
+// ============================================================
+// ORDER LINE
+// Never overwrite the quantity originally requested.
+// ============================================================
+
+model OrderItem {
+  id        Int @id @default(autoincrement())
+  orderId   Int
+  productId Int
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  // Snapshots for historical accuracy.
+  sku  String
+  name String
+
+  requestedQty    Int @default(0)
+  allocatedQty    Int @default(0)
+  actualPickedQty Int?
+  finalInvoiceQty Int @default(0)
+  backorderQty    Int @default(0)
+
+  calculatedUnitPrice Decimal @db.Decimal(10, 2)
+  finalUnitPrice      Decimal @db.Decimal(10, 2)
+  priceSource         PriceSource
+
+  // If finalUnitPrice differs from calculatedUnitPrice, preserve who changed it.
+  priceAdjustedByUserId Int?
+  priceAdjustedBy       User? @relation("OrderItemPriceAdjustedBy", fields: [priceAdjustedByUserId], references: [id])
+  priceAdjustmentReason String?
+  priceAdjustedAt       DateTime?
+
+  requestedLineTotal Decimal @default(0) @db.Decimal(12, 2)
+  finalLineTotal     Decimal @default(0) @db.Decimal(12, 2)
+
+  // What the rep/office saw when the order was created.
+  lastPriceSnapshot        Decimal? @db.Decimal(10, 2)
+  lastQtySnapshot          Decimal? @db.Decimal(14, 4)
+  lastPurchaseDateSnapshot DateTime? @db.Date
+
+  lineNotes String? @db.Text
+
+  // Retail price-gun snapshot for this exact Customer + Product order line.
+  retailLabelRequiredSnapshot       Boolean @default(false)
+  retailUnitsPerSellingUnitSnapshot Int?
+  retailLabelMarginPctSnapshot      Decimal? @db.Decimal(5, 2)
+  retailLabelPrice                  Decimal? @db.Decimal(10, 2)
+
+  commitments InventoryCommitment[]
+  backorder    Backorder?
+  fulfillmentLinks BackorderFulfillment[] @relation("FulfillmentOrderItem")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([priceAdjustedByUserId])
+}
+
+// ============================================================
+// INVENTORY COMMITMENTS
+//
+// Available = Product.qboQtyOnHand - sum(active commitments)
+//
+// Active commitment statuses:
+// RESERVED
+// AWAITING_QBO_CONFIRMATION
+// ============================================================
+
+model InventoryCommitment {
+  id          Int @id @default(autoincrement())
+  orderId     Int
+  orderItemId Int
+  productId   Int
+
+  quantity Int
+  status   InventoryCommitmentStatus @default(RESERVED)
+
+  order     Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id])
+
+  releasedAt     DateTime?
+  qboConfirmedAt DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([productId, status])
+  @@index([orderId, status])
+}
+
+// ============================================================
+// BACKORDERS
+// One backorder record per original order line.
+// Can later be fulfilled through one or more new BACKORDER orders.
+// ============================================================
+
+model Backorder {
+  id              Int    @id @default(autoincrement())
+  backorderNumber String @unique
+
+  customerId Int
+  productId  Int
+
+  originalOrderId     Int
+  originalOrderItemId Int @unique
+
+  originalQty  Int
+  openQty      Int
+  fulfilledQty Int @default(0)
+  cancelledQty Int @default(0)
+
+  status BackorderStatus @default(OPEN)
+
+  cancelReason      String?
+  cancelledByUserId Int?
+  cancelledAt       DateTime?
+  fulfilledAt       DateTime?
+
+  customer          Customer  @relation(fields: [customerId], references: [id])
+  product           Product   @relation(fields: [productId], references: [id])
+  originalOrder     Order     @relation("OriginalOrderBackorders", fields: [originalOrderId], references: [id])
+  originalOrderItem OrderItem @relation(fields: [originalOrderItemId], references: [id])
+  cancelledBy       User?     @relation("BackorderCancelledBy", fields: [cancelledByUserId], references: [id])
+
+  fulfillments BackorderFulfillment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId, status])
+  @@index([productId, status])
+}
+
+model BackorderFulfillment {
+  id Int @id @default(autoincrement())
+
+  backorderId Int
+
+  fulfillmentOrderId     Int
+  fulfillmentOrderItemId Int
+
+  quantity Int
+
+  backorder           Backorder @relation(fields: [backorderId], references: [id], onDelete: Cascade)
+  fulfillmentOrder    Order     @relation("FulfillmentOrder", fields: [fulfillmentOrderId], references: [id])
+  fulfillmentOrderItem OrderItem @relation("FulfillmentOrderItem", fields: [fulfillmentOrderItemId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([backorderId, fulfillmentOrderItemId])
+  @@index([fulfillmentOrderId])
+}
+
+// ============================================================
+// QUICKBOOKS INVOICE CACHE
+// Operational cache for balances, open invoices, 60-day history,
+// Last Price / Last Qty / Last Purchase Date.
+// QuickBooks remains the source of truth.
+// ============================================================
+
+model QuickBooksInvoiceSnapshot {
+  id           Int    @id @default(autoincrement())
+  qboInvoiceId String @unique
+  docNumber    String?
+
+  customerId Int
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  txnDate DateTime  @db.Date
+  dueDate DateTime? @db.Date
+
+  totalAmount Decimal @default(0) @db.Decimal(12, 2)
+  balance     Decimal @default(0) @db.Decimal(12, 2)
+
+  isOpen Boolean @default(false)
+
+  lines QuickBooksInvoiceLineSnapshot[]
+
+  lastSyncedAt DateTime @default(now())
+
+  @@index([customerId, txnDate])
+  @@index([customerId, isOpen])
+}
+
+model QuickBooksInvoiceLineSnapshot {
+  id        Int @id @default(autoincrement())
+  invoiceId Int
+
+  productId Int?
+  qboItemId String?
+
+  sku  String?
+  name String
+
+  quantity  Decimal @default(0) @db.Decimal(14, 4)
+  unitPrice Decimal @default(0) @db.Decimal(10, 2)
+  amount    Decimal @default(0) @db.Decimal(12, 2)
+
+  invoice QuickBooksInvoiceSnapshot @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product Product?                  @relation(fields: [productId], references: [id])
+
+  @@index([invoiceId])
+  @@index([productId])
+}
+
+
+// ============================================================
+// NOTIFICATIONS
+//
+// Notifications are operational/UI alerts only. They must never
+// determine whether the underlying transaction succeeds.
+// ============================================================
+
+model Notification {
+  id Int @id @default(autoincrement())
+
+  // Stable application code, e.g. DAILY_SYNC_FAILED.
+  typeCode String
+  severity NotificationSeverity @default(INFO)
+
+  title   String
+  message String @db.Text
+
+  entityType String?
+  entityId   String?
+
+  // Used to prevent repeated unresolved alerts for same condition.
+  dedupeKey String?
+
+  actionPath String?
+
+  resolvedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  recipients NotificationRecipient[]
+
+  @@index([typeCode, createdAt])
+  @@index([severity, resolvedAt])
+  @@index([dedupeKey, resolvedAt])
+}
+
+model NotificationRecipient {
+  id Int @id @default(autoincrement())
+
+  notificationId Int
+  userId         Int
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  readAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@unique([notificationId, userId])
+  @@index([userId, readAt])
+}
+
+// ============================================================
+// ADMIN SYSTEM CONFIG
+//
+// Singleton-style operational configuration.
+// Critical integrity protections are NOT configurable here.
+// ============================================================
+
+model SystemConfig {
+  id Int @id @default(autoincrement())
+
+  // Admin emergency controls.
+  qboInvoiceExportEnabled Boolean @default(true)
+  orderSubmissionEnabled  Boolean @default(true)
+
+  // Safe operational preferences.
+  dailyOpeningSyncTime          String  @default("05:30")
+  officeNewOrderSoundEnabled    Boolean @default(true)
+  backorderReadyAlertsEnabled   Boolean @default(true)
+  adminDailyDigestEnabled       Boolean @default(false)
+
+  // Sales follow-up threshold. Default business rule = 15 days.
+  salesRepFollowUpDays Int @default(15)
+
+  updatedByUserId Int?
+  updatedBy       User? @relation("SystemConfigUpdatedBy", fields: [updatedByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([updatedByUserId])
+}
+
+// ============================================================
+// QUICKBOOKS CONNECTION / OAUTH STATE
+// Tokens must be encrypted at rest.
+// ============================================================
+
+model QuickBooksConnection {
+  id Int @id @default(autoincrement())
+
+  realmId     String @unique
+  companyName String?
+
+  environment QuickBooksEnvironment
+  status      QuickBooksConnectionStatus @default(DISCONNECTED)
+
+  accessTokenCiphertext  String? @db.Text
+  refreshTokenCiphertext String? @db.Text
+
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+
+  connectedAt        DateTime?
+  lastTokenRefreshAt DateTime?
+  disconnectedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+// ============================================================
+// QUICKBOOKS SYNCHRONIZATION
+// Supports required Daily Opening Sync + Manual/Automatic/Webhook.
+// ============================================================
+
+model QuickBooksSyncRun {
+  id Int @id @default(autoincrement())
+
+  type   SyncType
+  status SyncStatus @default(RUNNING)
+
+  // Used to determine if today's mandatory opening sync is complete.
+  businessDate DateTime? @db.Date
+
+  startedByUserId Int?
+  startedBy       User? @relation("SyncStartedBy", fields: [startedByUserId], references: [id])
+
+  customersUpdated Int @default(0)
+  productsUpdated  Int @default(0)
+  categoriesUpdated Int @default(0)
+  inventoryUpdated Int @default(0)
+  balancesUpdated  Int @default(0)
+  invoicesUpdated  Int @default(0)
+
+  errorDetails Json?
+
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+
+  @@index([type, businessDate])
+  @@index([status, startedAt])
+}
+
+// ============================================================
+// BULK QUICKBOOKS INVOICE EXPORT
+// Allows many READY orders to be exported in one action while
+// tracking each order independently.
+// ============================================================
+
+model QuickBooksExportBatch {
+  id Int @id @default(autoincrement())
+
+  status ExportBatchStatus @default(RUNNING)
+
+  startedByUserId Int
+  startedBy       User @relation("ExportBatchStartedBy", fields: [startedByUserId], references: [id])
+
+  totalOrders  Int @default(0)
+  successCount Int @default(0)
+  failedCount  Int @default(0)
+
+  items QuickBooksExportItem[]
+
+  createdAt   DateTime @default(now())
+  completedAt DateTime?
+
+  @@index([status, createdAt])
+}
+
+model QuickBooksExportItem {
+  id Int @id @default(autoincrement())
+
+  batchId Int
+  orderId Int
+
+  status ExportItemStatus @default(PENDING)
+
+  qboInvoiceId     String?
+  qboInvoiceNumber String?
+
+  errorCode    String?
+  errorMessage String? @db.Text
+
+  batch QuickBooksExportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  order Order                 @relation(fields: [orderId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([batchId, orderId])
+  @@index([orderId, status])
+}
+
+// ============================================================
+// QUICKBOOKS WEBHOOK EVENT INBOX
+// Optional but recommended for reliable webhook deduplication.
+// ============================================================
+
+model QuickBooksWebhookEvent {
+  id Int @id @default(autoincrement())
+
+  eventKey  String @unique
+  entityType String
+  entityId   String
+  operation  String
+
+  status  WebhookEventStatus @default(RECEIVED)
+  payload Json
+
+  receivedAt  DateTime @default(now())
+  processedAt DateTime?
+  errorMessage String? @db.Text
+
+  @@index([status, receivedAt])
+  @@index([entityType, entityId])
+}
+
+// ============================================================
+// AUDIT TRAIL
+// Tracks sensitive operational changes:
+// price changes, order edits, backorder cancellations, exports, etc.
+// ============================================================
+
+model AuditLog {
+  id Int @id @default(autoincrement())
+
+  actorUserId Int?
+  actor       User? @relation("AuditActor", fields: [actorUserId], references: [id])
+
+  action     String
+  entityType String
+  entityId   String?
+
+  beforeData Json?
+  afterData  Json?
+  metadata   Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorUserId, createdAt])
+}
