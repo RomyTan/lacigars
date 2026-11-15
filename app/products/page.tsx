@@ -114,7 +114,7 @@ export default function ProductsPage() {
         }
       });
       ScrollTrigger.refresh();
-    }, mainRef.current); 
+    }, mainRef.current!); 
 
     return () => {
       ctx.revert();
@@ -134,7 +134,7 @@ export default function ProductsPage() {
       </div>
 
       {/* NAVBAR */}
-      <nav className={`fixed top-0 left-0 w-full px-8 py-5 flex justify-between items-center z-[999] transition-all duration-500 ${isScrolled ? 'bg-[#fdfbf7]/95 backdrop-blur-md shadow-sm border-b border-[#e6e2d8]/60' : 'bg-transparent'}`}>
+      <nav className={`fixed top-0 left-0 w-full px-8 py-5 flex justify-between items-center z-999 transition-all duration-500 ${isScrolled ? 'bg-[#fdfbf7]/95 backdrop-blur-md shadow-sm border-b border-[#e6e2d8]/60' : 'bg-transparent'}`}>
         <div className="nav-anim flex items-center gap-3">
           <Link href="/" className="flex items-center gap-3">
             <img src="/lacigars-logo.png" alt="Logo" className="h-12 md:h-14 w-auto object-contain" />
@@ -193,7 +193,7 @@ export default function ProductsPage() {
             {/* [REPLACE_ME]: Gambar Box Produk */}
             {[1,2,3].map((item) => (
               <div key={item} className="fs-content group cursor-pointer">
-                <div className="aspect-[4/3] bg-white border border-[#e6e2d8] rounded-xl mb-6 overflow-hidden flex items-center justify-center relative shadow-sm hover:shadow-lg transition-shadow duration-500">
+                <div className="aspect-4/3 bg-white border border-[#e6e2d8] rounded-xl mb-6 overflow-hidden flex items-center justify-center relative shadow-sm hover:shadow-lg transition-shadow duration-500">
                    <div className="text-[#c4aa82] text-xs font-bold tracking-widest">PRODUCT IMAGE {item}</div>
                 </div>
                 <h3 className="font-serif font-bold text-xl text-[#2b2621] mb-2 group-hover:text-[#8c6d48] transition-colors">Premium Cigar Box {item}</h3>
@@ -215,7 +215,7 @@ export default function ProductsPage() {
             {/* [REPLACE_ME]: Gambar Box Produk */}
             {[4,5,6].map((item) => (
               <div key={item} className="fs-content group cursor-pointer">
-                <div className="aspect-[4/3] bg-white border border-[#e6e2d8] rounded-xl mb-6 overflow-hidden flex items-center justify-center relative shadow-sm hover:shadow-lg transition-shadow duration-500">
+                <div className="aspect-4/3 bg-white border border-[#e6e2d8] rounded-xl mb-6 overflow-hidden flex items-center justify-center relative shadow-sm hover:shadow-lg transition-shadow duration-500">
                    <div className="text-[#c4aa82] text-xs font-bold tracking-widest">PRODUCT IMAGE {item}</div>
                 </div>
                 <h3 className="font-serif font-bold text-xl text-[#2b2621] mb-2 group-hover:text-[#8c6d48] transition-colors">Vape / Accessory {item}</h3>
@@ -227,8 +227,8 @@ export default function ProductsPage() {
       </section>
 
       {/* 4. CTA & FOOTER */}
-      <section className="fs-section relative h-screen w-full flex flex-col justify-between bg-gradient-to-t from-[#eae4d9] to-[#f2efe9] z-10">
-        <div className="relative z-10 flex-grow flex items-center justify-center px-8">
+      <section className="fs-section relative h-screen w-full flex flex-col justify-between bg-linear-to-t from-[#eae4d9] to-[#f2efe9] z-10">
+        <div className="relative z-10 grow flex items-center justify-center px-8">
           <div className="fs-content max-w-4xl mx-auto text-center bg-white/80 backdrop-blur-md border border-[#dcd4c5] p-16 rounded-2xl shadow-xl">
             <h2 className="text-4xl font-serif font-bold text-[#2b2621] mb-6">Unlock the Full Catalog</h2>
             <p className="text-[#6b6256] text-sm leading-relaxed mb-10 max-w-xl mx-auto">

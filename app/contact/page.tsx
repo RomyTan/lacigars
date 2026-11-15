@@ -114,7 +114,7 @@ export default function ContactPage() {
         }
       });
       ScrollTrigger.refresh();
-    }, mainRef.current); 
+    }, mainRef.current!); 
 
     return () => {
       ctx.revert();
@@ -134,7 +134,7 @@ export default function ContactPage() {
       </div>
 
       {/* NAVBAR */}
-      <nav className={`fixed top-0 left-0 w-full px-8 py-5 flex justify-between items-center z-[999] transition-all duration-500 ${isScrolled ? 'bg-[#fdfbf7]/95 backdrop-blur-md shadow-sm border-b border-[#e6e2d8]/60' : 'bg-transparent'}`}>
+      <nav className={`fixed top-0 left-0 w-full px-8 py-5 flex justify-between items-center z-999 transition-all duration-500 ${isScrolled ? 'bg-[#fdfbf7]/95 backdrop-blur-md shadow-sm border-b border-[#e6e2d8]/60' : 'bg-transparent'}`}>
         <div className="nav-anim flex items-center gap-3">
           <Link href="/" className="flex items-center gap-3">
             <img src="/lacigars-logo.png" alt="Logo" className="h-12 md:h-14 w-auto object-contain" />
@@ -162,7 +162,7 @@ export default function ContactPage() {
       </nav>
 
       {/* SINGLE FULL-SCREEN SECTION FOR CONTACT */}
-      <section className="fs-section relative flex-grow w-full flex flex-col justify-center items-center px-8 z-10 bg-transparent pt-24">
+      <section className="fs-section relative grow w-full flex flex-col justify-center items-center px-8 z-10 bg-transparent pt-24">
         <div className="relative z-10 max-w-6xl mx-auto w-full flex flex-col md:flex-row bg-white/80 backdrop-blur-xl border border-[#dcd4c5] rounded-2xl shadow-xl overflow-hidden">
           
           {/* KIRI: INFO PERUSAHAAN */}

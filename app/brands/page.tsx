@@ -114,7 +114,7 @@ export default function BrandsPage() {
         }
       });
       ScrollTrigger.refresh();
-    }, mainRef.current); 
+    }, mainRef.current!); 
 
     return () => {
       ctx.revert();
@@ -135,7 +135,7 @@ export default function BrandsPage() {
       </div>
 
       {/* NAVBAR */}
-      <nav className={`fixed top-0 left-0 w-full px-8 py-5 flex justify-between items-center z-[999] transition-all duration-500 ${isScrolled ? 'bg-[#1a1714]/95 shadow-sm border-b border-[#3d332a]' : 'bg-transparent'}`}>
+      <nav className={`fixed top-0 left-0 w-full px-8 py-5 flex justify-between items-center z-999 transition-all duration-500 ${isScrolled ? 'bg-[#1a1714]/95 shadow-sm border-b border-[#3d332a]' : 'bg-transparent'}`}>
         <div className="nav-anim flex items-center gap-3">
           <Link href="/" className="flex items-center gap-3">
             <img src="/lacigars-logo.png" alt="Logo" className="h-12 md:h-14 w-auto object-contain brightness-0 invert" />
@@ -202,7 +202,7 @@ export default function BrandsPage() {
       </section>
 
       {/* 3. VAPES & ACCESSORIES BRANDS */}
-      <section className="fs-section relative h-screen w-full flex items-center z-10 bg-gradient-to-b from-[#1a1714] to-[#0d0b0a] border-b border-[#2b2621]">
+      <section className="fs-section relative h-screen w-full flex items-center z-10 bg-linear-to-b from-[#1a1714] to-[#0d0b0a] border-b border-[#2b2621]">
         <div className="relative z-10 max-w-7xl mx-auto px-8 w-full">
           <div className="text-center mb-16">
             <p className="fs-content text-[10px] tracking-[0.3em] uppercase text-[#F8B93C] font-bold mb-4">— Category</p>
@@ -221,7 +221,7 @@ export default function BrandsPage() {
 
       {/* 4. CTA & FOOTER */}
       <section className="fs-section relative h-screen w-full flex flex-col justify-between bg-[#0d0b0a] z-10">
-        <div className="relative z-10 flex-grow flex items-center justify-center px-8">
+        <div className="relative z-10 grow flex items-center justify-center px-8">
           <div className="fs-content max-w-4xl mx-auto text-center bg-[#1a1714] border border-[#3d332a] p-16 rounded-2xl shadow-2xl">
             <h2 className="text-4xl font-serif font-bold text-[#fdfbf7] mb-6">Explore Our Full Catalog</h2>
             <p className="text-[#c4aa82] text-sm leading-relaxed mb-10 max-w-xl mx-auto">
