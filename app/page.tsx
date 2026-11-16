@@ -343,15 +343,27 @@ export default function LandingPage() {
       {/* ========================================================= */}
       {/* 2. COMPANY SECTION                                        */}
       {/* ========================================================= */}
-      <section className="fs-section relative h-screen w-full flex items-center bg-white z-10 overflow-hidden">
-        <div className="fs-bg absolute inset-0 bg-transparent bg-cover bg-center opacity-0 pointer-events-none" />
+      <section className="fs-section relative h-screen w-full flex items-center bg-[#fdfbf7] z-10 overflow-hidden">
+        
+        {/* 1. BACKGROUND SECTION & WHITE OVERLAY */}
+        <div className="fs-bg absolute inset-0 pointer-events-none opacity-0">
+          {/* Gambar Background Full */}
+          <div className="absolute inset-0 bg-[url('/company-01.jpg')] bg-cover bg-center" />
+          
+          {/* LAYER OVERLAY PUTIH TRANSPARAN + BLUR TIPIS */}
+          {/* bg-[#fdfbf7]/85 bikin background tertutup 85% warna off-white */}
+          <div className="absolute inset-0 bg-[#fdfbf7]/85 backdrop-blur-[2px]" />
+        </div>
+        
         <div className="relative z-10 max-w-7xl mx-auto px-8 w-full flex flex-col md:flex-row items-center gap-16">
+          
+          {/* BAGIAN KIRI (TEKS) */}
           <div className="w-full md:w-1/2">
             <p className="fs-content text-[10px] tracking-[0.3em] uppercase text-[#8c6d48] font-bold mb-4">— Our Company</p>
             <h2 className="fs-content text-5xl font-serif font-bold text-[#2b2621] leading-tight mb-8">
               A Legacy of Reliable Distribution.
             </h2>
-            <p className="fs-content text-[#6b6256] text-sm leading-relaxed mb-10 max-w-lg">
+            <p className="fs-content text-[#6b6256] text-sm leading-relaxed mb-10 max-w-lg font-medium">
               Based in Florida, Latin American Cigars Corp. has established itself as a premier wholesale partner for retailers. We bridge the gap between world-class tobacco manufacturers and the retail market, offering a streamlined supply chain, competitive terms, and uncompromised service quality.
             </p>
             <div className="fs-content">
@@ -360,36 +372,129 @@ export default function LandingPage() {
               </Link>
             </div>
           </div>
-          <div className="w-full md:w-1/2 h-[60vh] relative rounded-xl overflow-hidden shadow-2xl fs-content">
-            <div className="absolute inset-0 bg-[#eae5db] bg-[url('/warehouse-bg.jpg')] bg-cover bg-center" />
-            <div className="absolute inset-0 bg-[#2b2621] opacity-20 mix-blend-multiply" />
-            <div className="absolute bottom-6 left-6 bg-white/90 backdrop-blur px-4 py-2 rounded-sm text-[9px] tracking-widest uppercase font-bold text-[#8c6d48]">
+
+          {/* BAGIAN KANAN (GAMBAR KOTAK) */}
+          <div className="w-full md:w-1/2 h-[60vh] relative rounded-xl overflow-hidden shadow-2xl fs-content group border border-[#e6e2d8]">
+            
+            {/* 2. GAMBAR KOTAK (FLORIDA OPERATIONS HUB) */}
+            <div className="absolute inset-0 bg-[#eae5db] bg-[url('/company-02.jpg')] bg-cover bg-center transition-transform duration-700 group-hover:scale-105" />
+            
+            {/* Overlay gelap tipis yang hilang saat di-hover */}
+            <div className="absolute inset-0 bg-black/10 pointer-events-none transition-opacity duration-700 group-hover:bg-black/0" />
+            
+            <div className="absolute bottom-6 left-6 bg-white/95 backdrop-blur-md px-4 py-2 rounded-sm text-[9px] tracking-widest uppercase font-bold text-[#8c6d48] shadow-lg">
               Florida Operations Hub
             </div>
           </div>
+
         </div>
       </section>
 
       {/* ========================================================= */}
-      {/* 3. BRANDS SECTION                                         */}
+      {/* 3. BRANDS SECTION (INFINITE MARQUEE LOOP)                 */}
       {/* ========================================================= */}
-      <section className="fs-section relative h-screen w-full flex items-center bg-[#211e1a] text-white z-10 overflow-hidden">
-        <div className="fs-bg absolute inset-0 bg-[url('/leaf-bg.jpg')] bg-cover bg-center opacity-0 pointer-events-none mix-blend-overlay" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#1a1714] to-transparent opacity-80" />
-        <div className="relative z-10 max-w-6xl mx-auto px-8 w-full text-center">
-          <p className="fs-content text-[10px] tracking-[0.3em] uppercase text-[#c4aa82] font-bold mb-4">— Curated Portfolio</p>
-          <h2 className="fs-content text-5xl md:text-[64px] font-serif font-bold mb-16 leading-tight">Representing<br/>Premium Brands.</h2>
-          <div className="fs-content grid grid-cols-2 md:grid-cols-4 gap-8 items-center justify-items-center mb-16">
-            <div className="h-20 w-40 bg-white/5 border border-white/10 rounded-lg flex items-center justify-center text-[10px] tracking-widest text-[#c4aa82] hover:bg-white/10 transition-colors cursor-pointer backdrop-blur-sm">BRAND LOGO 1</div>
-            <div className="h-20 w-40 bg-white/5 border border-white/10 rounded-lg flex items-center justify-center text-[10px] tracking-widest text-[#c4aa82] hover:bg-white/10 transition-colors cursor-pointer backdrop-blur-sm">BRAND LOGO 2</div>
-            <div className="h-20 w-40 bg-white/5 border border-white/10 rounded-lg flex items-center justify-center text-[10px] tracking-widest text-[#c4aa82] hover:bg-white/10 transition-colors cursor-pointer backdrop-blur-sm">BRAND LOGO 3</div>
-            <div className="h-20 w-40 bg-white/5 border border-white/10 rounded-lg flex items-center justify-center text-[10px] tracking-widest text-[#c4aa82] hover:bg-white/10 transition-colors cursor-pointer backdrop-blur-sm">BRAND LOGO 4</div>
+      <section className="fs-section relative w-full flex flex-col justify-center items-center bg-white z-10 overflow-hidden py-32 border-b border-[#e6e2d8]">
+        
+        {/* CSS KEYFRAMES UNTUK ANIMASI MARQUEE */}
+        <style dangerouslySetInnerHTML={{__html: `
+          @keyframes marquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(calc(-200px * 15 - 3rem * 15)); } /* 15 adalah setengah dari total elemen untuk seamless loop */
+          }
+          .animate-marquee {
+            display: flex;
+            width: fit-content;
+            animation: marquee 40s linear infinite;
+          }
+          /* Pause animasi kalau area di-hover */
+          .marquee-container:hover .animate-marquee {
+            animation-play-state: paused;
+          }
+        `}} />
+
+        <div className="relative z-10 max-w-7xl mx-auto px-8 w-full text-center mb-16">
+          <p className="fs-content text-[10px] tracking-[0.3em] uppercase text-[#8c6d48] font-bold mb-4">— Curated Portfolio</p>
+          <h2 className="fs-content text-5xl md:text-[64px] font-serif font-bold text-[#2b2621] leading-tight">Representing<br/>Premium Brands.</h2>
+        </div>
+
+        {/* CONTAINER MARQUEE LOOP */}
+        <div className="fs-content w-full relative overflow-hidden marquee-container py-8">
+          {/* Efek fade/gradient di pinggiran kiri-kanan layar supaya logo gak kepotong kasar */}
+          <div className="absolute top-0 bottom-0 left-0 w-32 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
+          <div className="absolute top-0 bottom-0 right-0 w-32 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
+
+          <div className="animate-marquee gap-12 pl-12">
+            {/* 
+              KITA DUPLIKAT ARRAY 30 LOGO INI JADI 2 KALI (TOTAL 60) 
+              AGAR ANIMASI LOOPING-NYA MULUS & TIDAK TERPUTUS.
+              Ganti "logo-1.png" sesuai dengan nama file logo lu di folder public/brands/
+            */}
+            {[...Array(2)].map((_, arrayIndex) => (
+              <>
+                {[
+                  { name: "ACID Cigars", img: "acid.jpg" },
+                  { name: "Aging Room", img: "aging-room.jpg" },
+                  { name: "AJ Fernandez", img: "aj-fernandez.jpg" },
+                  { name: "Altadis", img: "altadis2.png" },
+                  { name: "Arturo Fuente", img: "arturo-fuente.jpg" },
+                  { name: "AVO", img: "avo.jpg" },
+                  { name: "Cafeteros", img: "cafeteros.png" },
+                  { name: "Camacho", img: "camacho.jpg" },
+                  { name: "Chevere", img: "chevere.jpg" },
+                  { name: "Cohiba", img: "cohiba.jpg" },
+                  { name: "Cuban Rejects", img: "cuban-rejects.jpg" },
+                  { name: "Cuban Sandwich", img: "cuban-sandwich.webp" },
+                  { name: "Cubiche", img: "cubiche.webp" },
+                  { name: "Don Felo", img: "don-felo.jpg" },
+                  { name: "Drew Estate", img: "drew-estate.jpg" },
+                  { name: "ElBacan", img: "elbacan.jpg" },
+                  { name: "H Upmann", img: "h-upmann.jpg" },
+                  { name: "Jaime Garcia", img: "jaime-garcia.jpg" },
+                  { name: "Java", img: "java.jpg" },
+                  { name: "La Aurora", img: "la-aurora.jpg" },
+                  { name: "La Galera", img: "la-galera.jpg" },
+                  { name: "La Gloria Cubana", img: "la-gloria-cubana.jpg" },
+                  { name: "Macanudo", img: "macnudo.jpg" },
+                  { name: "Maravilla Gigantes", img: "maravilla-gigantes.jpg" },
+                  { name: "My Father", img: "my-father.jpg" },
+                  { name: "New Cuba", img: "new-cuba.jpg" },
+                  { name: "Olivia", img: "olivia.jpg" },
+                  { name: "Partagas", img: "partagas.jpg" },
+                  { name: "Perdomo", img: "perdomo.jpg" },
+                  { name: "Perez Carillo", img: "perez-carillo.jpg" },
+                ].map((brand, i) => (
+                  <div key={`${arrayIndex}-${i}`} className="group flex flex-col items-center justify-center w-[200px] flex-shrink-0 cursor-pointer">
+                    {/* CONTAINER LOGO */}
+                    <div className="h-48 w-full flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-110">
+                      {/* 
+                        Logo dibuat grayscale dan opacity 60% by default, 
+                        saat di-hover akan full color dan jelas. 
+                      */}
+                      <img 
+                        src={`/brands/${brand.img}`} 
+                        alt={brand.name} 
+                        className="max-h-full max-w-full object-contain filter grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-300"
+                        // Fallback kalau gambar belum ada biar gak error/bolong
+                        onError={(e) => {
+                          e.currentTarget.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23f0f0f0"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="12" fill="%23888">NO LOGO</text></svg>';
+                        }}
+                      />
+                    </div>
+                    {/* NAMA BRAND */}
+                    <span className="text-[11px] font-bold tracking-widest uppercase text-[#6b6256] group-hover:text-[#8c6d48] transition-colors duration-300">
+                      {brand.name}
+                    </span>
+                  </div>
+                ))}
+              </>
+            ))}
           </div>
-          <div className="fs-content">
-            <Link href="/brands" className="inline-flex items-center gap-3 px-8 py-4 border border-[#c4aa82] text-[#c4aa82] text-[10px] tracking-[0.2em] font-bold hover:bg-[#F8B93C] hover:text-[#1a1714] hover:border-[#F8B93C] transition-colors rounded-sm">
-              VIEW FULL PORTFOLIO <span>→</span>
-            </Link>
-          </div>
+        </div>
+        
+        <div className="fs-content mt-16 z-10">
+          <Link href="/brands" className="inline-flex items-center gap-3 px-8 py-4 border border-[#8c6d48] text-[#8c6d48] text-[10px] tracking-[0.2em] font-bold hover:bg-[#8c6d48] hover:text-white transition-colors rounded-sm shadow-sm">
+            VIEW FULL PORTFOLIO <span>→</span>
+          </Link>
         </div>
       </section>
 
